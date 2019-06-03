@@ -1,0 +1,9 @@
+npm install -g create-react-app
+create-react-app frontend
+
+npm run test
+npm run build
+npm run start
+
+docker build -f Dockerfile.dev  .
+docker run -p 3000:3000 <id>

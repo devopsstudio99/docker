@@ -1,0 +1,75 @@
+how to create private registry and enable HTTPS
+
+env create centos azure
+install docke-ce
+
+
+
+1) create selfsign cert
+sudo bash (run as root)
+cd /home/jenkinsadmin
+mkdir -p /home/jenkinsadmin/certs
+mkdir -p /home/jenkinsadmin/auth
+
+openssl req -newkey rsa:4096 -nodes -sha256 -keyout certs/dockerrepo.key -x509 -days 365 -out certs/dockerrepo.crt -subj /CN=myregistrydomain.com
+
+2) create docker registry with password
+docker run --entrypoint htpasswd registry:2 -Bbn test password > auth/htpasswd
+
+
+
+3) verify htpassword existed
+cat /home/jenkinsadmin/auth/htpasswd 
+test:$2y$05$bhkMbN4llAzjsZwWNFBs7OFMvKCVRb3q3KS9jrhxMnGYJHLIJuMya
+
+4) create location for ca.crt
+mkdir -p /etc/docker/certs.d/myregistrydomain.com:5000
+cp /home/jenkinsadmin/certs/dockerrepo.crt  /etc/docker/certs.d/myregistrydomain.com:5000/ca.crt
+
+4) add /etc/hosts
+10.0.2.14	myregistrydomain.com
+#10.0.2.14 is host ip 
+
+4) run docker
+cd /home/jenkinsadmin/
+
+docker run -d -p 5000:5000 -v /home/jenkinsadmin/certs:/certs -e REGISTRY_HTTP_TLS_CERTIFICATE=/certs/dockerrepo.crt -e REGISTRY_HTTP_TLS_KEY=/certs/dockerrepo.key -v /home/jenkinsadmin/auth:/auth -e REGISTRY_AUTH=htpasswd -e REGISTRY_AUTH_HTPASSWD_REALM="Registry Realm" -e REGISTRY_AUTH_HTPASSWD_PATH=/auth/htpasswd registry:2
+
+
+5) docker login
+docker login myregistrydomain.com:5000
+
+username: test
+password: password
+
+6) docker create tag (user busybox as sample image)
+docker pull busybox 
+docker tag busybox myregistrydomain.com:5000/my-busybox1
+docker push myregistrydomain.com:5000/my-busybox1
+
+7) test
+docker rm myregistrydomain.com:5000/my-busybox1
+docker login myregistrydomain.com:5000
+docker pull myregistrydomain.com:5000/my-busybox1
+
+
+8 on machine
+vi  /Applications/Docker.app/Contents/Resources/linux-daemon-options.json
+add line below
+    "insecure-registries" : ["myregistrydomain.com:5000"]
+
+ 9) test docker pull from Mac
+ allow port 5000 on azure
+ add record of azure /etc/hosts
+ 13.67.52.193	myregistrydomain.com
+
+docker login myregistrydomain.com:5000
+docker pull myregistrydomain.com:5000/my-busybox3
+
+open browser open link
+https://myregistrydomain.com:5000/v2/_catalog
+https://myregistrydomain.com:5000/v2/my-busybox1/tags/list
+
+try this one
+curl -k -u "test:password" https://myregistrydomain.com:5000/v2/my-busybox1/manifests/latest
+
