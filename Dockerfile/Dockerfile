@@ -6,7 +6,7 @@ WORKDIR /usr/app
 # Install node
 COPY ./package.json  ./
 RUN npm install
-
+ENV ENVIRONMENT="development"
 COPY ./index.js ./
 
 # cmd
